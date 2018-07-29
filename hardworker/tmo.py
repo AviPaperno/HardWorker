@@ -9,7 +9,7 @@ from threading import Thread
 from jsonschema import validate
 from sqlalchemy.orm import sessionmaker
 
-from MyErrors import M_Exceptioin
+from MyErrors import M_Exception
 from db import engine, Tasks, Base
 from decorators import current, BaseTask, validators
 from mymail import Mail_Sender
@@ -97,8 +97,10 @@ class HardWorker():
         """
         self.max_globals = self.config.get('MAX_COUNT', 5)
         self.max_types = self.config.get('MAX_TYPE_COUNT', {})
-        self.email = Mail_Sender(self.config.get('MAIL_SERVER', 'smtp.yandex.ru:465'), self.config.get('MAIL_LOGIN', ''), self.config.get(
-            'MAIL_PASSWORD', ''), self.config.get('MAIL_FROM', 'HardWorker'), self.config.get('MAIL_SUBJECT', 'Your task finished'))
+        self.email = Mail_Sender(self.config.get('MAIL_SERVER', 'smtp.yandex.ru:465'),
+                                 self.config.get('MAIL_LOGIN', ''), self.config.get(
+                'MAIL_PASSWORD', ''), self.config.get('MAIL_FROM', 'HardWorker'),
+                                 self.config.get('MAIL_SUBJECT', 'Your task finished'))
 
     def load_classes(self):
         """Данный метод загружает информацию о всех задачах, созданных через
@@ -116,7 +118,7 @@ class HardWorker():
                 except:
                     pass
             else:
-                raise M_Exceptioin(
+                raise M_Exception(
                     'Function named {} duplicated'.format(i.name), 100)
 
     def resend_email(self):
@@ -132,7 +134,7 @@ class HardWorker():
             try:
                 self.email.send_message(i.email, str(i.result), i.file_path)
                 i.mailed = True
-            except:
+            except Exception:
                 pass
         session.commit()
         session.close()
@@ -147,7 +149,8 @@ class HardWorker():
         if 'mydatabase.db' in os.listdir('.'):
             session = self.DB()
             var = session.query(Tasks).filter(
-                Tasks.status != 2).order_by(Tasks.id).all()
+                Tasks.status != 2).filter(
+                Tasks.status != 3).order_by(Tasks.id).all()
             for i in var:
                 session.delete(i)
                 session.commit()
@@ -173,24 +176,28 @@ class HardWorker():
         Task.status = 1
         Task.time_start = datetime.datetime.now()
         session.commit()
-        tmp = function(params)
-        if (type(tmp) == dict) and tmp.get('file_path', False) and tmp.get('result', False):
-            Task.file_path = tmp['file_path']
-            Task.result = tmp['result']
-        else:
-            Task.result = str(tmp)
-        Task.status = 2
-        Task.time_end = datetime.datetime.now()
+        try:
+            tmp = function(params)
+            if (type(tmp) == dict) and tmp.get('file_path', False) and tmp.get('result', False):
+                Task.file_path = tmp['file_path']
+                Task.result = tmp['result']
+            else:
+                Task.result = str(tmp)
+            Task.status = 2
+            Task.time_end = datetime.datetime.now()
+        except Exception as e:
+            Task.status = 3
+            Task.result = "Not found parameter(s) named {} or it's not valid.".format(e.args)
         try:
             self.email.send_message(Task.email, str(Task.result), Task.file_path)
             Task.mailed = True
-        except :
+        except Exception:
             Task.mailed = False
         session.commit()
         session.close()
 
     def add_task(self, type_of_task, params, email):
-        '''
+        """
         В этом методе происходит следующее:
             1. Валидация e-mail, проверка зарегистрирован данный тип задачи, а так же валидация параметров, при наличии валидатора
             2. Создание записи в БД и процесса, для выполнения задачи
@@ -199,28 +206,27 @@ class HardWorker():
         :param params: параметры для задачи
         :param email: email на который будет отправляться результат выполнения задачи
         :return:
-        '''
+        """
+
         if not email or not re.match(r"^([a-z0-9_-]+\.)*[a-z0-9_-]+@[a-z0-9_-]+(\.[a-z0-9_-]+)*\.[a-z]{2,6}$", email):
-            raise M_Exceptioin('No valid email', 600)
+            raise M_Exception('No valid email', 600)
             return
         if type_of_task in self.types:
             try:
                 if self.validators.get(type_of_task, False):
                     validate(params, self.validators.get(type_of_task))
-                else:
-                    pass
-            except Exception as e:
-                raise M_Exceptioin('Validate failed', 200)
+            except Exception:
+                raise M_Exception('Validate failed', 200)
                 return
             session = self.DB()
             _id = session.query(Tasks).order_by(-Tasks.id).first()
             session.close()
             session = self.DB()
-            if _id != None:
-                id = _id.id + 1
+            if _id is not None:
+                local_id = _id.id + 1
             else:
-                id = 1
-            td = Tasks(id=id, type_of_task=type_of_task, params=str(
+                local_id = 1
+            td = Tasks(id=local_id, type_of_task=type_of_task, params=str(
                 params), email=email)
             session.add(td)
             session.commit()
@@ -229,7 +235,7 @@ class HardWorker():
                 self.tmp[type_of_task], id, params), email=email, type_of_task=type_of_task)
             self.Queue[type_of_task].append(curr_p)
         else:
-            raise M_Exceptioin('No this type of task', 300)
+            raise M_Exception('No this type of task', 300)
 
     def check_stat(self):
         """Метод, который проверяет, есть ли среди процессов, которые уже
@@ -237,11 +243,8 @@ class HardWorker():
 
         :return: список процессов, завершивших свою работу
         """
-        answ = []
-        for i in self.RunQueue:
-            if not i.is_alive():
-                answ.append(i)
-        return answ
+
+        return [i for i in self.RunQueue if not i.is_alive()]
 
     def check_dict(self):
         """Метод, который проверяет, есть ли в очереди на выполнение хотя бы
@@ -249,8 +252,9 @@ class HardWorker():
 
         :return:
         """
-        for i in self.Queue.keys():
-            if self.Queue[i]:
+
+        for key, value in self.Queue.items():
+            if value:
                 return True
         return False
 
@@ -260,9 +264,10 @@ class HardWorker():
 
         :return:
         """
-        for i in self.Queue.keys():
-            if self.Queue[i]:
-                return self.Queue[i][0].time
+
+        for key, value in self.Queue.items():
+            if value:
+                return value[0].time
 
     def check(self):
         """Это основной метод, который запускается в отдельном потоке. Он
@@ -279,8 +284,8 @@ class HardWorker():
                 min_time = self.min_time()
                 for i in self.Queue.keys():
                     if self.Queue.get(i, False):
-                        if (self.max_types.get(i, False)):
-                            if (self.current_types.get(i) < self.max_types.get(i)):
+                        if self.max_types.get(i, False):
+                            if self.current_types.get(i) < self.max_types.get(i):
                                 if self.Queue[i][0].time <= min_time:
                                     min_time = self.Queue[i][0].time
                                     add_process = i
@@ -288,13 +293,11 @@ class HardWorker():
                             if self.Queue[i][0].time <= min_time:
                                 min_time = self.Queue[i][0].time
                                 add_process = i
-                if (add_process != None):
+                if add_process != None:
                     tmp = self.Queue[add_process].pop(0)
                     tmp.start()
                     self.RunQueue.append(tmp)
                     self.current_types[add_process] += 1
-                else:
-                    pass
             if self.check_stat():
                 for i in self.check_stat():
                     self.RunQueue.remove(i)

@@ -21,7 +21,7 @@ class Mail_Sender(object):
         self.subject = subject
         if self.check_connection():
             try:
-                server = smtp.SMTP_SSL(self.server)
+                server = smtp.SMTP_SSL(self.server,timeout=2)
                 server.ehlo()
                 server.login(self.mail, self.password)
             except:
@@ -60,7 +60,7 @@ class Mail_Sender(object):
     def check_connection(self):
         try:
             host = socket.gethostbyname("www.yandex.ru")
-            s = socket.create_connection((host, 80), 2)
+            s = socket.create_connection((host, 80), timeout=2)
             return True
         except:
             pass

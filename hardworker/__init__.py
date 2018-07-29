@@ -3,7 +3,7 @@
 from flask import Flask, render_template
 from flask import request
 from tmo import HardWorker
-from MyErrors import M_Exceptioin
+from MyErrors import M_Exception
 from sqlalchemy.orm import sessionmaker
 from db import engine,Tasks
 from decorators import task,BaseTask
@@ -22,7 +22,7 @@ def postJsonHandler():
         hardworkerapp.add_task(
             str(content[u'name']), content[u'params'], str(content[u'email']))
         return '{"status": "OK"}'
-    except M_Exceptioin as e:
+    except M_Exception as e:
         t = {'status': 'ERROR',
              'error_code': e.id,
              'error_msg': e.message,
