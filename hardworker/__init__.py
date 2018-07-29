@@ -6,7 +6,7 @@ from tmo import HardWorker
 from MyErrors import M_Exceptioin
 from sqlalchemy.orm import sessionmaker
 from db import engine,Tasks
-from decorators import task
+from decorators import task,BaseTask
 
 # Инициализация приложений, для запуска Flask и нашего приложения
 app = Flask(__name__)

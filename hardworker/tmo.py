@@ -129,13 +129,11 @@ class HardWorker():
         var = session.query(Tasks).filter(
             Tasks.status == 2).filter(Tasks.mailed == False).all()
         for i in var:
-            print i
             try:
                 self.email.send_message(i.email, str(i.result), i.file_path)
-
                 i.mailed = True
-            except Exception as e:
-                print e
+            except:
+                pass
         session.commit()
         session.close()
 
@@ -186,7 +184,7 @@ class HardWorker():
         try:
             self.email.send_message(Task.email, str(Task.result), Task.file_path)
             Task.mailed = True
-        except Exception as e:
+        except :
             Task.mailed = False
         session.commit()
         session.close()
