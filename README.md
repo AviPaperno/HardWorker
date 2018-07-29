@@ -120,8 +120,8 @@ class MyTask(BaseTask):
 
 hardworkerapp.start()
 app.run(host='0.0.0.0', port=8089)
-```
 
+```
 
 ##База данных
 
