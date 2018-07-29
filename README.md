@@ -122,7 +122,9 @@ hardworkerapp.start()
 app.run(host='0.0.0.0', port=8089)
 ```
 
+
 ##База данных
+
 
 В БД, в табличке Tasks, хранится информация о задачах.
 ![](table.png)
