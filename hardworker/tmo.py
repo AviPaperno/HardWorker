@@ -232,7 +232,7 @@ class HardWorker():
             session.commit()
             session.close()
             curr_p = MyProcess(target=self.mytask, args=(
-                self.tmp[type_of_task], id, params), email=email, type_of_task=type_of_task)
+                self.tmp[type_of_task], local_id, params), email=email, type_of_task=type_of_task)
             self.Queue[type_of_task].append(curr_p)
         else:
             raise M_Exception('No this type of task', 300)
