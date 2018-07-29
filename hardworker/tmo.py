@@ -115,7 +115,7 @@ class HardWorker():
                 self.types.append(i.name)
                 try:
                     self.validators[i.name] = i.json_schema
-                except:
+                except Exception:
                     pass
             else:
                 raise M_Exception(
@@ -132,7 +132,7 @@ class HardWorker():
             Tasks.status == 2).filter(Tasks.mailed == False).all()
         for i in var:
             try:
-                self.email.send_message(i.email, str(i.result), i.file_path)
+                self.email.send_message(i.email, str(i.result.encode("utf-8")), i.file_path)
                 i.mailed = True
             except Exception:
                 pass
